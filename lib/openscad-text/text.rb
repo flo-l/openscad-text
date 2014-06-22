@@ -101,13 +101,32 @@ class Text
     vecs  = TurnVector.new(state).to_a
 
     # are we going in the wrong direction?
-    vecs.reverse! if @matrix[*(Vector[*current]+vecs[1]).to_a] == :black
+    #vecs.reverse! if @matrix[*(Vector[*current]+vecs[1]).to_a] == :black
 
-    # vector from the current to the next point
-    vec_next = vecs.detect { |vec| @matrix[*(Vector[*current]+vec).to_a] == :black }
+    # turn the vector and find each which touches a white pixel
+    last = :black
+    touchy_vecs = vecs.map.with_index do |vec,i|
+      color = @matrix[*(Vector[*current]+vec).to_a]
+      color_changed = color != last
+      last = vec
+      
+      if color_changed
+        # return the black point of the two touching the borderline
+        color == :black ? vec : vecs[i-1]
+      end
+    end
 
-    # return the next point
-    (Vector[*current] + vec_next).to_a
+    #remove nil(s) and duplicates
+    touchy_vecs.compact!.uniq!
+
+    # possible next points
+    touchy_points = touchy_vecs.map { |vec| (Vector[*current] + vec).to_a }
+
+    # remove the invalid ones
+    touchy_points.delete_if { |point| point_invalid? *point }
+
+    # return the next point or nil
+    touchy_points[0]
   end
 
   # finds one possible last point from current_point
@@ -157,18 +176,19 @@ class Text
       # add the index of the last point in points aka current_point to faces
       @paths.last << @points.count - 1
 
-      # try to find next point
+      # try to find next point (nil if none was found)
       next_point = find_next_point(last_point, current_point)
-
-      # stop then
-      if point_invalid? *next_point
-        #p last_point, current_point, next_point if false and @points.count == 68
-        break
-      else
-        last_point = current_point
-        current_point = next_point
-      end
+      last_point = current_point
+      current_point = next_point
     end
+  end
+
+  # aligns the text to the bottom-left corner of the first quadrant
+  def align_points
+    x_min = @points.map { |x,_| x }.min
+    y_min = @points.map { |_,y| y }.min
+
+    @points.map! { |x,y| [x-x_min, y-y_min] }
   end
 
   public
@@ -184,9 +204,27 @@ class Text
       create_pixel_chain(x,y)
     end
 
+    # align it!
+    align_points
+
     # finished woop woop
     "polygon(points=#{@points.to_s}, paths=#{@paths.to_s});"
   end
+
+=begin !!just for debugging!!
+  def debug_output
+    out = @paths.map.with_index do |chain,i|
+      s = ""
+      s << '# ' if i != 0
+
+      chain.each { |p_i| s << "translate(#{@points[p_i].to_s}) cube(1);\n" }
+      s
+    end
+
+    out.each { |o| puts o, "/"*30 }
+    exit
+  end
+=end
 
   def self.available_fonts
     FONT_DIRECTORIES.map do |dir|
