@@ -50,11 +50,11 @@ class Text
   def create_image
     # calculate and store the image dimensions
     dimensions = @draw.get_type_metrics @text
-    @columns = dimensions.width.ceil 
-    @rows    = dimensions.height.ceil
+    @x = dimensions.width.ceil 
+    @y = dimensions.height.ceil
 
     # create the image and draw text
-    @image  = Image.new(@columns, @rows) { self.background_color = 'white' }
+    @image  = Image.new(@x, @y) { self.background_color = 'white' }
     @draw.annotate(@image, *[0]*4, @text)
 
     @image
@@ -71,7 +71,7 @@ class Text
     return true if @points.any? { |point| point == [x,y] }
 
     # if not already taken border points are always valid
-    return false if x == 0 or y == 0
+    return false if x == 0 or y == 0 or x == @x or y == @y
 
     # if all non-diagonal neighbours are black, the point must be invalid
     neighbours = find_direct_neighbours(x,y)
@@ -82,11 +82,11 @@ class Text
   end
 
   def find_direct_neighbours(x,y)
-    x_min = [x-1,        0].max
-    x_max = [x+1, @columns].min
+    x_min = [x-1,  0].max
+    x_max = [x+1, @x].min
 
-    y_min = [y-1,        0].max
-    y_max = [y+1, @rows   ].min
+    y_min = [y-1,  0].max
+    y_max = [y+1, @y].min
 
     [
       [x_min, y    ],
