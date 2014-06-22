@@ -1,32 +1,3 @@
-class Text
-  # This yields 8 vectors turned counter-clockwise 45 degrees each
-  class TurnVector
-    include Enumerable
-    VECTORS = [
-      Vector[-1, 0],
-      Vector[-1,-1],
-      Vector[ 0,-1],
-      Vector[ 1,-1],
-      Vector[ 1, 0],
-      Vector[ 1, 1],
-      Vector[ 0, 1],
-      Vector[-1, 1],
-    ].freeze
-
-    def initialize(state)
-      @state = VECTORS.find_index Vector[*state]
-    end
-
-    def each
-      VECTORS.length.times do
-        @state = 0 if @state >= VECTORS.length
-        yield VECTORS[@state]
-        @state += 1
-      end
-    end
-  end
-end
-
 # Represents a Text with a font
 class Text
   include Magick
@@ -96,25 +67,44 @@ class Text
     ].uniq - [[x,y]]
   end
 
-  def find_next_point(last, current)
-    state = Vector[*last] - Vector[*current]
-    vecs  = TurnVector.new(state).to_a
+  # finds next point in chain from current point
+  def find_next_point(current)
+    # 8 vectors turned counter-clockwise 45 degrees each
+    vecs = [
+      Vector[-1, 0],
+      Vector[-1,-1],
+      Vector[ 0,-1],
+      Vector[ 1,-1],
+      Vector[ 1, 0],
+      Vector[ 1, 1],
+      Vector[ 0, 1],
+      Vector[-1, 1],
+    ]
+
+    # color of the last pixel
+    last_color = @matrix[*(Vector[*current]+vecs.last).to_a]
 
     # turn the vector and find each which touches a white pixel
-    last = :black
     touchy_vecs = vecs.map.with_index do |vec,i|
-      color = @matrix[*(Vector[*current]+vec).to_a]
-      color_changed = color != last
-      last = vec
-      
+      current_color = @matrix[*(Vector[*current]+vec).to_a]
+      color_changed = current_color != last_color
+      last_color = current_color
+
+      # return a vec or nil
       if color_changed
         # return the black point of the two touching the borderline
-        color == :black ? vec : vecs[i-1]
+        if current_color == :black
+          vec
+        else
+          # the one before vec, if i==0 the last one is the one before
+          i-1 >= 0 ? vecs[i-1] : vecs.last
+        end
       end
     end
 
     #remove nil(s) and duplicates
-    touchy_vecs.compact!.uniq!
+    touchy_vecs.compact!
+    touchy_vecs.uniq!
 
     # possible next points
     touchy_points = touchy_vecs.map { |vec| (Vector[*current] + vec).to_a }
@@ -126,45 +116,17 @@ class Text
     touchy_points[0]
   end
 
-  # finds one possible last point from current_point
-  def find_last_point(current_point)
-    t = TurnVector.new([-1,-1]).to_a
-
-    # ary with bools true for :black, false for :white
-    is_black = t.map { |vec| @matrix[*(Vector[*current_point]+vec).to_a] == :black }
-
-    possible_vecs = []
-    is_black.each_cons(2).with_index  do |cons,i|
-      a,b = cons
-      if  ! a and b
-        possible_vecs << t[i+1]
-      elsif a and ! b
-        possible_vecs << t[i]
-      end
-    end
-
-    # corner cases for [false, false, true, true]
-    #              and [true, true, false, false]
-    # then the first/last one is also a border point
-    possible_vecs << t.first if ! is_black.first and   is_black.last
-    possible_vecs << t.last  if   is_black.first and ! is_black.last
-
-    # return last point
-    (possible_vecs.first + Vector[*current_point]).to_a
-  end
-
   # starting with point(x,y), try to create a path (or chain)
   # until the starting point is reached again
   def create_pixel_chain(x,y)
     # can't create a chain if the point is invalid
     return if point_invalid?(x,y)
 
-    # create a new ary in the faces ary
+    # create a new ary in the paths ary
     @paths << []
 
     # setup state
     current_point = [x,y]
-    last_point = find_last_point(current_point)
 
     while current_point
       # add the point to the points array
@@ -174,9 +136,7 @@ class Text
       @paths.last << @points.count - 1
 
       # try to find next point (nil if none was found)
-      next_point = find_next_point(last_point, current_point)
-      last_point = current_point
-      current_point = next_point
+      current_point = find_next_point(current_point)
     end
   end
 
@@ -193,15 +153,16 @@ class Text
     @points = []
     @paths  = []
 
-    # create a matrix from pixels
+    # draw an image of the text and create a matrix from its pixels
     @matrix = create_image.pixel_matrix
 
     # go through each point aka pixel to make sure it gets used once
+    # and try to retrace the letters
     @matrix.each_with_index do |_,x,y|
       create_pixel_chain(x,y)
     end
 
-    # align it!
+    # align them!
     align_points
 
     # finished woop woop
