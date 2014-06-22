@@ -100,9 +100,6 @@ class Text
     state = Vector[*last] - Vector[*current]
     vecs  = TurnVector.new(state).to_a
 
-    # are we going in the wrong direction?
-    #vecs.reverse! if @matrix[*(Vector[*current]+vecs[1]).to_a] == :black
-
     # turn the vector and find each which touches a white pixel
     last = :black
     touchy_vecs = vecs.map.with_index do |vec,i|
