@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'openscad-text'
-  s.version     = '1.0.0'
+  s.version     = '1.0.1'
   s.date        = '2014-06-17'
   s.summary     = "Create openscad texts easily"
   s.description = "A text-generator for Openscad"
