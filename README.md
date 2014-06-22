@@ -1,14 +1,22 @@
 openscad-text
 =============
-A ruby gem to generate text in openscad with system fonts easily
+A ruby gem to generate text in openscad with system fonts easily.
 
 Installation:
 -------------
+You need ```ruby``` installed on your machine, on linux simply type:
+
+    \curl -sSL https://get.rvm.io | bash -s stable --with-gems="openscad-text"
+
+This will install the ```ruby``` interpreter and the ```openscad-text``` gem.
+
+Those who already have ruby installed can simply type the following to install the gem:
+
     gem install openscad-text
 
 Usage:
 ------
-nice_text.rb:
+Create a file called ```nice_text.rb``` with the following content:
 
     require 'openscad-text'
     
@@ -16,7 +24,7 @@ nice_text.rb:
     text = Text.new("Nice Text!", font)
     puts text.to_openscad
 
-If you're on Linux you could use the little script above like so:
+If you're on Linux you can use the little script above like so:
 
     ruby nice_text.rb > nice_text.scad
 
