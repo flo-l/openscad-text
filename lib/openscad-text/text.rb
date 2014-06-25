@@ -34,37 +34,35 @@ class Text
   # checks if a point is already in the points ary
   # aka if it has already been used and also if a point is surrounded
   # by too many other black points
-  def point_invalid?(x,y)
+  def point_invalid?(point)
     # white points are always invalid
-    return true if @matrix[x,y] == :white
+    return true if @matrix[*point] == :white
 
     # point already taken
-    return true if @points.any? { |point| point == [x,y] }
+    return true if @points.any? { |p| p == point }
 
     # if not already taken border points are always valid
-    return false if x == 0 or y == 0 or x == @x or y == @y
+    return false if point[0] == 0 or point[1] == 0 or point[0] == @x or point[1] == @y
 
     # if all non-diagonal neighbours are black, the point must be invalid
-    neighbours = find_direct_neighbours(x,y)
+    neighbours = find_direct_neighbours(point)
     return true if neighbours.count == 4 and neighbours.all? { |neighbour| @matrix[*neighbour] == :black }
 
     # point is valid
     false
   end
 
-  def find_direct_neighbours(x,y)
-    x_min = [x-1,  0].max
-    x_max = [x+1, @x].min
+  def find_direct_neighbours(point)
+    # vecs to the 4 non-daigonal points
+    vecs = [
+      Vector[-1, 0],
+      Vector[ 1, 0],
+      Vector[ 0, 1],
+      Vector[ 0,-1]
+    ]
 
-    y_min = [y-1,  0].max
-    y_max = [y+1, @y].min
-
-    [
-      [x_min, y    ],
-      [x_max, y    ],
-      [x    , y_max],
-      [x    , y_min]
-    ].uniq - [[x,y]]
+    neighbours = vecs.map { |vec| point + vec }
+    neighbours.delete_if { |point| point.any? { |i| i < 0 } }
   end
 
   # finds next point in chain from current point
@@ -82,11 +80,11 @@ class Text
     ]
 
     # color of the last pixel
-    last_color = @matrix[*(Vector[*current]+vecs.last).to_a]
+    last_color = @matrix[*current+vecs.last]
 
     # turn the vector and find each which touches a white pixel
     touchy_vecs = vecs.map.with_index do |vec,i|
-      current_color = @matrix[*(Vector[*current]+vec).to_a]
+      current_color = @matrix[*current+vec]
       color_changed = current_color != last_color
       last_color = current_color
 
@@ -107,10 +105,10 @@ class Text
     touchy_vecs.uniq!
 
     # possible next points
-    touchy_points = touchy_vecs.map { |vec| (Vector[*current] + vec).to_a }
+    touchy_points = touchy_vecs.map { |vec| current + vec }
 
     # remove the invalid ones
-    touchy_points.delete_if { |point| point_invalid? *point }
+    touchy_points.delete_if { |point| point_invalid? point }
 
     # return the next point or nil
     touchy_points[0]
@@ -118,15 +116,12 @@ class Text
 
   # starting with point(x,y), try to create a path (or chain)
   # until the starting point is reached again
-  def create_pixel_chain(x,y)
+  def create_pixel_chain(current_point)
     # can't create a chain if the point is invalid
-    return if point_invalid?(x,y)
+    return if point_invalid?(current_point)
 
     # create a new ary in the paths ary
     @paths << []
-
-    # setup state
-    current_point = [x,y]
 
     while current_point
       # add the point to the points array
@@ -142,10 +137,12 @@ class Text
 
   # aligns the text to the bottom-left corner of the first quadrant
   def align_points
-    x_min = @points.map { |x,_| x }.min
-    y_min = @points.map { |_,y| y }.min
+    x_min = @points.map { |p| p[0] }.min
+    y_min = @points.map { |p| p[1] }.min
 
-    @points.map! { |x,y| [x-x_min, y-y_min] }
+    vec = Vector[x_min,y_min]
+
+    @points.map! { |p| p - vec }
   end
 
   public
@@ -159,14 +156,14 @@ class Text
     # go through each point aka pixel to make sure it gets used once
     # and try to retrace the letters
     @matrix.each_with_index do |_,x,y|
-      create_pixel_chain(x,y)
+      create_pixel_chain(Vector[x,y])
     end
 
     # align them!
     align_points
 
     # finished woop woop
-    "polygon(points=#{@points.to_s}, paths=#{@paths.to_s});"
+    "polygon(points=#{@points.map(&:to_a).to_s}, paths=#{@paths.to_s});"
   end
 
 =begin !!just for debugging!!
